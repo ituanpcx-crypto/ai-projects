@@ -1,6 +1,6 @@
-# SMARTWORK 2035 — Module AI Projects
+# AI PROJECTS
 
-Bản dựng thử giao diện (prototype) cho module quản lý danh mục dự án AI và tự động hóa nội bộ.
+Bản dựng thử giao diện (prototype) cho module quản lý danh mục dự án AI và tự động hóa.
 
 **Xem thử trực tiếp:** https://TEN-TAI-KHOAN.github.io/ai-projects/
 *(thay `TEN-TAI-KHOAN` bằng tên tài khoản GitHub của bạn sau khi bật GitHub Pages)*

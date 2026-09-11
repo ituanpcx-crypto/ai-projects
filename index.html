@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SMARTWORK 2035 — AI Projects</title>
+<title>AI PROJECTS</title>
 <style>
 /* ══════════════════════════════════════════════════════════════════
    DESIGN TOKENS + STYLES
@@ -79,7 +79,8 @@ html, body { margin: 0; padding: 0; }
 .sw-card { background: var(--surface-1); border: 1px solid var(--border-1);
   border-radius: var(--r-lg); box-shadow: var(--shadow-1);
   backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); }
-.sw-h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.028em; line-height: 1.12; margin: 0; }
+/* Tiêu đề viết hoa cần giãn chữ dương, khác với chữ thường */
+.sw-h1 { font-size: 34px; font-weight: 700; letter-spacing: 0.01em; line-height: 1.14; margin: 0; }
 .sw-sub { color: var(--text-2); font-size: 15px; margin: 6px 0 0; max-width: 62ch; }
 .sw-h2 { font-size: 19px; font-weight: 650; letter-spacing: -0.018em; margin: 0; }
 .sw-meta { font-size: 13px; color: var(--text-3); }
@@ -498,9 +499,9 @@ html, body { margin: 0; padding: 0; }
 
     <header class="sw-head">
       <div>
-        <h1 class="sw-h1">AI Projects</h1>
-        <p class="sw-sub">Danh mục dự án AI và tự động hóa nội bộ: đăng ký, theo dõi tiến độ,
-          chấm mức khả thi và đo bằng số giờ công thực sự tiết kiệm được.</p>
+        <h1 class="sw-h1">AI PROJECTS</h1>
+        <p class="sw-sub">Danh mục dự án AI và tự động hóa: đăng ký, đánh giá và phê duyệt,
+          theo dõi tiến độ, tổng hợp dữ liệu.</p>
       </div>
       <div class="sw-head-tools">
         <div class="sw-seg" id="sw-role" role="group" aria-label="Vai trò mô phỏng"></div>
@@ -1007,6 +1008,10 @@ function sortProjects(ps, key, dir) {
    5. SERVICE — mock bất đồng bộ, sau này thay bằng API thật
    ══════════════════════════════════════════════════════════════════ */
 var AIProjectsService = {
+  // Bat co nay de thu man hinh bao loi. Khong con nut bam tren giao dien;
+  // muon thu thi mo Console cua trinh duyet va go:
+  //   AIProjectsService.shouldFail = true; location.reload === undefined;
+  // hoac don gian: AIProjectsService.shouldFail = true  roi bam nut Thu lai.
   shouldFail: false,
   getProjects: function () {
     var self = this;
@@ -1672,10 +1677,7 @@ function mainHtml() {
   return '<div id="sw-period">' + periodBarHtml() + '</div>'
     + '<div id="sw-kpiwrap">' + kpiHtml() + '</div>'
     + '<div class="sw-section" id="sw-insights">' + insightsHtml() + '</div>'
-    + '<div class="sw-section" id="sw-body">' + bodyHtml() + '</div>'
-    + '<p class="sw-meta" style="text-align:center;margin-top:34px;display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap">'
-    + ic('zap', 13) + ' SMARTWORK 2035 · Bản dựng thử giao diện, dữ liệu mô phỏng'
-    + '<button class="sw-btn sw-btn--ghost sw-btn--sm" data-act="sim-error">' + ic('slash', 14) + ' Mô phỏng lỗi tải</button></p>';
+    + '<div class="sw-section" id="sw-body">' + bodyHtml() + '</div>';
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -2212,7 +2214,6 @@ $main.addEventListener('click', function (e) {
   else if (act === 'goal-clear') { S.filters.goal = 'all'; renderGoals(); renderBody(); }
   else if (act === 'chart-metric') { S.chart.metric = key; S.chart.active = null; S.chart.animated = false; renderAnalytics(); }
   else if (act === 'retry') { load(); }
-  else if (act === 'sim-error') { AIProjectsService.shouldFail = true; load(); }
 });
 $main.addEventListener('change', function (e) {
   var el = actOf(e); if (!el) return;
