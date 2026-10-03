@@ -4,6 +4,44 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AI PROJECTS</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+window.__AI_PROJECTS_CONFIG__ = {
+  supabaseUrl: 'https://ogktngmahfvgcbkckjfi.supabase.co',
+  supabaseAnonKey: 'sb_publishable_tb__vxDH8lir1fkhcb9Dew_v6fNAZDS'
+};
+window.aiProjects = window.aiProjects || {};
+window.aiProjects.getConfig = function () {
+  var cfg = window.__AI_PROJECTS_CONFIG__ || {};
+  return {
+    supabaseUrl: (cfg.supabaseUrl || '').trim(),
+    supabaseAnonKey: (cfg.supabaseAnonKey || '').trim()
+  };
+};
+window.aiProjects.getSupabaseClient = function () {
+  var cfg = this.getConfig();
+  if (!cfg.supabaseUrl || !cfg.supabaseAnonKey || !window.supabase) return null;
+  if (!this._supabaseClient || this._supabaseClient.url !== cfg.supabaseUrl) {
+    this._supabaseClient = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  }
+  return this._supabaseClient;
+};
+window.aiProjects.persistLocal = function (projects) {
+  try {
+    localStorage.setItem('ai-projects-local-projects', JSON.stringify(projects));
+  } catch (err) {}
+};
+window.aiProjects.readLocal = function () {
+  try {
+    var raw = localStorage.getItem('ai-projects-local-projects');
+    if (!raw) return [];
+    var parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    return [];
+  }
+};
+</script>
 <style>
 /* ══════════════════════════════════════════════════════════════════
    DESIGN TOKENS + STYLES
@@ -1013,14 +1051,98 @@ var AIProjectsService = {
   //   AIProjectsService.shouldFail = true; location.reload === undefined;
   // hoac don gian: AIProjectsService.shouldFail = true  roi bam nut Thu lai.
   shouldFail: false,
+  normalizeProject: function (p) {
+    var copy = Object.assign({}, p);
+    copy.id = copy.id || 'P-' + String(Date.now()).slice(-4);
+    copy.ownerName = copy.ownerName || copy.owner_name || '';
+    copy.department = copy.department || '';
+    copy.status = copy.status || 'not_started';
+    copy.goal = copy.goal || 'TIME';
+    copy.description = copy.description || '';
+    copy.problem = copy.problem || '';
+    copy.proposedSolution = copy.proposedSolution || copy.proposed_solution || '';
+    copy.tools = Array.isArray(copy.tools) ? copy.tools.slice() : [];
+    copy.activity = Array.isArray(copy.activity) ? copy.activity.slice() : [];
+    copy.comments = Array.isArray(copy.comments) ? copy.comments.slice() : [];
+    copy.startDate = copy.startDate || copy.start_date || '';
+    copy.expectedCompletionDate = copy.expectedCompletionDate || copy.expected_completion_date || '';
+    copy.actualCompletionDate = copy.actualCompletionDate || copy.actual_completion_date || '';
+    copy.pauseReason = copy.pauseReason || copy.pause_reason || '';
+    copy.createdAt = copy.createdAt || copy.created_at || new Date().toISOString();
+    copy.updatedAt = copy.updatedAt || copy.updated_at || copy.createdAt;
+    copy.goalNote = copy.goalNote || copy.goal_note || '';
+    copy.expectedHoursSavedPerMonth = copy.expectedHoursSavedPerMonth != null ? copy.expectedHoursSavedPerMonth : (copy.expected_hours_saved_per_month != null ? copy.expected_hours_saved_per_month : 0);
+    copy.actualHoursSavedPerMonth = copy.actualHoursSavedPerMonth != null ? copy.actualHoursSavedPerMonth : (copy.actual_hours_saved_per_month != null ? copy.actual_hours_saved_per_month : 0);
+    copy.progress = copy.progress != null ? Number(copy.progress) : 0;
+    var score = copy.managerAssessment && copy.managerAssessment.score != null ? copy.managerAssessment.score : copy.manager_assessment_score;
+    var comment = copy.managerAssessment && copy.managerAssessment.comment ? copy.managerAssessment.comment : copy.manager_assessment_comment;
+    copy.managerAssessment = (score != null || comment) ? { score: Number(score || 0), comment: comment || '' } : null;
+    return copy;
+  },
   getProjects: function () {
     var self = this;
     return new Promise(function (resolve, reject) {
       setTimeout(function () {
         if (self.shouldFail) { self.shouldFail = false; reject(new Error('NETWORK')); return; }
-        resolve(MOCK_PROJECTS);
+        var client = window.aiProjects && window.aiProjects.getSupabaseClient ? window.aiProjects.getSupabaseClient() : null;
+        if (client) {
+          client.from('projects').select('*').order('updated_at', { ascending: false }).then(function (result) {
+            if (result.error) {
+              var local = window.aiProjects.readLocal();
+              resolve(local.length ? local : MOCK_PROJECTS);
+              return;
+            }
+            resolve((result.data || []).map(function (p) { return self.normalizeProject(p); }));
+          }).catch(function () {
+            var local = window.aiProjects.readLocal();
+            resolve(local.length ? local : MOCK_PROJECTS);
+          });
+          return;
+        }
+        var local = window.aiProjects.readLocal();
+        resolve(local.length ? local : MOCK_PROJECTS);
       }, 750);
     });
+  },
+  persistProjects: function (projects) {
+    var normalized = (projects || []).map(function (p) { return this.normalizeProject(p); }, this);
+    var client = window.aiProjects && window.aiProjects.getSupabaseClient ? window.aiProjects.getSupabaseClient() : null;
+    if (client) {
+      client.from('projects').upsert(normalized.map(function (p) {
+        return {
+          id: p.id,
+          name: p.name,
+          owner_name: p.ownerName,
+          department: p.department,
+          status: p.status,
+          goal: p.goal,
+          description: p.description,
+          problem: p.problem,
+          proposed_solution: p.proposedSolution,
+          tools: p.tools,
+          progress: p.progress,
+          expected_hours_saved_per_month: p.expectedHoursSavedPerMonth,
+          actual_hours_saved_per_month: p.actualHoursSavedPerMonth,
+          manager_assessment_score: p.managerAssessment ? p.managerAssessment.score : null,
+          manager_assessment_comment: p.managerAssessment ? p.managerAssessment.comment : null,
+          start_date: p.startDate,
+          expected_completion_date: p.expectedCompletionDate,
+          actual_completion_date: p.actualCompletionDate,
+          pause_reason: p.pauseReason,
+          created_at: p.createdAt,
+          updated_at: p.updatedAt,
+          comments: p.comments,
+          activity: p.activity
+        };
+      }), { onConflict: 'id' }).then(function () {
+        window.aiProjects.persistLocal(normalized);
+      }).catch(function () {
+        window.aiProjects.persistLocal(normalized);
+      });
+      return Promise.resolve(normalized);
+    }
+    window.aiProjects.persistLocal(normalized);
+    return Promise.resolve(normalized);
   }
 };
 
@@ -1052,6 +1174,7 @@ function patch(id, changes, act) {
   for (var k in changes) p[k] = changes[k];
   p.updatedAt = todayISO();
   if (act) p.activity.push({ id: id + '-' + Date.now(), type: act.type, text: act.text, at: todayISO() });
+  AIProjectsService.persistProjects(S.projects).catch(function () {});
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -2350,6 +2473,7 @@ $ov.addEventListener('click', function (e) {
     var delId = S.dialog.id, delP = findP(delId);
     var delName = delP ? delP.name : '';
     S.projects = S.projects.filter(function (x) { return x.id !== delId; });
+    AIProjectsService.persistProjects(S.projects).catch(function () {});
     S.dialog = null;
     if (S.detailId === delId) S.detailId = null;
     renderOverlay(); renderPeriod(); renderKpi(); renderAnalytics(); renderGoals(); renderBody();
@@ -2508,6 +2632,7 @@ function submitWizard() {
       text: 'Quản lý chấm khả thi ' + WIZ.score + '/10', at: todayISO() });
   }
   S.projects.unshift(p);
+  AIProjectsService.persistProjects(S.projects).catch(function () {});
   S.dialog = null; WIZ = null;
   S.detailId = id; UI.assessEdit = false;
   renderOverlay(); renderPeriod(); renderKpi(); renderAnalytics(); renderGoals(); renderBody();

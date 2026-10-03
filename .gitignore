@@ -1,0 +1,9 @@
+# Local/editor files
+.DS_Store
+.vscode/
+
+# Logs
+*.log
+
+# Optional local caches
+*.local
