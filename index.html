@@ -1053,7 +1053,7 @@ var AIProjectsService = {
   shouldFail: false,
   normalizeProject: function (p) {
     var copy = Object.assign({}, p);
-    copy.id = copy.id || 'P-' + String(Date.now()).slice(-4);
+    copy.id = copy.id || AIProjectsService.newId();
     copy.ownerName = copy.ownerName || copy.owner_name || '';
     copy.department = copy.department || '';
     copy.status = copy.status || 'not_started';
@@ -1104,9 +1104,32 @@ var AIProjectsService = {
       }, 750);
     });
   },
+  // Cot id tren Supabase la uuid nen id moi phai dung dinh dang uuid
+  newId: function () {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+  },
+  reportSyncError: function (err) {
+    console.error('Supabase sync failed:', err);
+    toast('Lỗi lưu lên máy chủ: ' + (err && err.message ? err.message : 'không rõ'));
+  },
+  deleteProject: function (id) {
+    var self = this;
+    var client = window.aiProjects && window.aiProjects.getSupabaseClient ? window.aiProjects.getSupabaseClient() : null;
+    if (!client) return Promise.resolve();
+    return client.from('projects').delete().eq('id', id).then(function (result) {
+      if (result.error) self.reportSyncError(result.error);
+    });
+  },
   persistProjects: function (projects) {
+    var self = this;
     var normalized = (projects || []).map(function (p) { return this.normalizeProject(p); }, this);
     var client = window.aiProjects && window.aiProjects.getSupabaseClient ? window.aiProjects.getSupabaseClient() : null;
+    // Cot kieu date khong nhan chuoi rong
+    var dateOrNull = function (v) { return v ? v : null; };
     if (client) {
       client.from('projects').upsert(normalized.map(function (p) {
         return {
@@ -1125,18 +1148,20 @@ var AIProjectsService = {
           actual_hours_saved_per_month: p.actualHoursSavedPerMonth,
           manager_assessment_score: p.managerAssessment ? p.managerAssessment.score : null,
           manager_assessment_comment: p.managerAssessment ? p.managerAssessment.comment : null,
-          start_date: p.startDate,
-          expected_completion_date: p.expectedCompletionDate,
-          actual_completion_date: p.actualCompletionDate,
+          start_date: dateOrNull(p.startDate),
+          expected_completion_date: dateOrNull(p.expectedCompletionDate),
+          actual_completion_date: dateOrNull(p.actualCompletionDate),
           pause_reason: p.pauseReason,
           created_at: p.createdAt,
           updated_at: p.updatedAt,
           comments: p.comments,
           activity: p.activity
         };
-      }), { onConflict: 'id' }).then(function () {
+      }), { onConflict: 'id' }).then(function (result) {
+        if (result.error) self.reportSyncError(result.error);
         window.aiProjects.persistLocal(normalized);
-      }).catch(function () {
+      }).catch(function (err) {
+        self.reportSyncError(err);
         window.aiProjects.persistLocal(normalized);
       });
       return Promise.resolve(normalized);
@@ -2473,7 +2498,8 @@ $ov.addEventListener('click', function (e) {
     var delId = S.dialog.id, delP = findP(delId);
     var delName = delP ? delP.name : '';
     S.projects = S.projects.filter(function (x) { return x.id !== delId; });
-    AIProjectsService.persistProjects(S.projects).catch(function () {});
+    AIProjectsService.deleteProject(delId);
+    window.aiProjects.persistLocal(S.projects);
     S.dialog = null;
     if (S.detailId === delId) S.detailId = null;
     renderOverlay(); renderPeriod(); renderKpi(); renderAnalytics(); renderGoals(); renderBody();
@@ -2614,7 +2640,7 @@ $ov.addEventListener('keydown', function (e) {
 
 function submitWizard() {
   var d = WIZ.draft;
-  var id = 'P-' + String(Date.now()).slice(-4);
+  var id = AIProjectsService.newId();
   var p = mk({
     id: id, name: d.name.trim(), ownerId: 'me', ownerName: d.ownerName.trim(), department: d.department,
     status: 'not_started', startDate: d.startDate, expectedCompletionDate: d.expectedCompletionDate,
